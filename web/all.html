@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Public Dreams Feed - DrEntry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bree+Serif&family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="header-top">
+        <div class="logo">DrEntry</div>
+        <div class="auth-bar">
+          <span id="user-display" class="user-display"></span>
+        </div>
+      </div>
+      <p class="subtitle">Public feed of shared dreams from all users</p>
+
+      <nav class="main-nav">
+        <a href="index.html" class="nav-btn" style="text-decoration: none; display: inline-block;">My Journal</a>
+        <a href="all.html" class="nav-btn active" style="text-decoration: none; display: inline-block;">Public Feed</a>
+      </nav>
+    </header>
+
+    <main class="main-content">
+      <section class="card list-card">
+        <h2>Public Dreams Feed</h2>
+
+        <div class="filter-section">
+          <div class="filter-label">Sort by:</div>
+          <select id="sort-select" class="filter-select" style="max-width: 250px;">
+            <option value="created-desc">Post Date (Newest First)</option>
+            <option value="created-asc">Post Date (Oldest First)</option>
+            <option value="dream-desc">Dream Date (Newest First)</option>
+            <option value="dream-asc">Dream Date (Oldest First)</option>
+          </select>
+        </div>
+
+        <div id="public-dreams-list" class="dreams-list">
+          <p class="empty-msg">No public dreams found.</p>
+        </div>
+
+        <div class="pagination-controls" id="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+          <button id="prev-page-btn" class="btn btn-outline" style="width: auto;">← Previous</button>
+          <span id="page-indicator" style="font-size: 0.85rem; color: var(--text-muted);">Page 1</span>
+          <button id="next-page-btn" class="btn btn-outline" style="width: auto;">Next →</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="all.js"></script>
+</body>
+</html>

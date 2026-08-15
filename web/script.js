@@ -1,12 +1,18 @@
-let currentUser = localStorage.getItem('son_current_user') || null;
-let dreams = [];
+let currentUser = localStorage.getItem('son_current_user') || 'Anonymous';
+let dreams = JSON.parse(localStorage.getItem('son_dreams') || '[]');
 let isSignUpMode = false;
 let selectedTags = new Set();
+let currentView = 'journal';
+
+let currentPage = 1;
+const ITEMS_PER_PAGE = 4;
+let currentSort = 'created-desc';
 
 const form = document.getElementById('dream-form');
 const dreamDateInput = document.getElementById('dream-date');
 const dreamTextInput = document.getElementById('dream-text');
 const dreamTagsInput = document.getElementById('dream-tags');
+const dreamPublicInput = document.getElementById('dream-public');
 const dreamTextError = document.getElementById('dream-text-error');
 const dreamTagsError = document.getElementById('dream-tags-error');
 const submitBtn = document.querySelector('#dream-form button[type="submit"]');
@@ -15,16 +21,31 @@ const moodSlider = document.getElementById('mood-score');
 const realismSlider = document.getElementById('realism-score');
 const moodVal = document.getElementById('mood-val');
 const realismVal = document.getElementById('realism-val');
+
 const dreamsList = document.getElementById('dreams-list');
+const publicDreamsList = document.getElementById('public-dreams-list');
 const tagsFilterContainer = document.getElementById('tags-filter-container');
 const authBtn = document.getElementById('auth-btn');
 const userDisplay = document.getElementById('user-display');
 
+const navMyDreams = document.getElementById('nav-my-dreams');
+const navPublicDreams = document.getElementById('nav-public-dreams');
+
+const viewJournal = document.getElementById('view-journal');
+const viewPublic = document.getElementById('view-public');
+
 const filterDaySelect = document.getElementById('filter-day');
 const filterMonthSelect = document.getElementById('filter-month');
 const filterYearSelect = document.getElementById('filter-year');
+const sortSelect = document.getElementById('sort-select');
 
-dreamDateInput.value = new Date().toISOString().split('T')[0];
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const pageIndicator = document.getElementById('page-indicator');
+
+if (dreamDateInput) {
+  dreamDateInput.value = new Date().toISOString().split('T')[0];
+}
 
 const authModal = document.getElementById('auth-modal');
 const modalClose = document.getElementById('modal-close');
@@ -36,66 +57,141 @@ const authSwitchText = document.getElementById('auth-switch-text');
 
 let matrixChart;
 let moodTimelineChart;
+let realismTimelineChart;
+let tagsBarChart;
 
 const textRegex = /^[a-zA-Z0-9\s,():\-—!?]*$/;
 const tagsRegex = /^[a-zA-Z\s,]*$/;
 
-function validateForm() {
+function saveDreamsToStorage() {
+  localStorage.setItem('son_dreams', JSON.stringify(dreams));
+}
+
+function validateForm(textInput = dreamTextInput, textError = dreamTextError, tagsInput = dreamTagsInput, tagsError = dreamTagsError, targetBtn = submitBtn) {
+  if (!textInput || !tagsInput) return true;
+  
   let isValid = true;
+  const textVal = textInput.value;
 
-  const textVal = dreamTextInput.value;
-  if (!textRegex.test(textVal)) {
-    dreamTextInput.classList.add('invalid-input');
-    dreamTextError.textContent = 'Allowed characters: Latin letters, numbers, spaces, commas, (), :, -, —, !, ?';
+  if (textVal.length > 0 && textVal.trim().length === 0) {
+    textInput.classList.add('invalid-input');
+    textError.textContent = 'Description cannot consist only of spaces';
     isValid = false;
-  } else if (textVal.length > 2000) {
-    dreamTextInput.classList.add('invalid-input');
-    dreamTextError.textContent = `Character limit exceeded: ${textVal.length}/5000`;
+  } else if (/ {11,}/.test(textVal)) {
+    textInput.classList.add('invalid-input');
+    textError.textContent = 'Maximum 10 consecutive spaces allowed';
     isValid = false;
-  } else {
-    dreamTextInput.classList.remove('invalid-input');
-    dreamTextError.textContent = '';
-  }
-
-  const tagsVal = dreamTagsInput.value;
-  const parsedTags = tagsVal
-    ? tagsVal.split(',').map(t => t.trim()).filter(t => t.length > 0)
-    : [];
-
-  if (!tagsRegex.test(tagsVal)) {
-    dreamTagsInput.classList.add('invalid-input');
-    dreamTagsError.textContent = 'Allowed characters: Latin letters, spaces, and commas';
+  } else if (!textRegex.test(textVal)) {
+    textInput.classList.add('invalid-input');
+    textError.textContent = 'Allowed characters: Latin letters, numbers, spaces, commas, (), :, -, —, !, ?';
     isValid = false;
-  } else if (parsedTags.length > 15) {
-    dreamTagsInput.classList.add('invalid-input');
-    dreamTagsError.textContent = `Tag limit exceeded: ${parsedTags.length}/15 max tags`;
+  } else if (textVal.length > 1500) {
+    textInput.classList.add('invalid-input');
+    textError.textContent = `Character limit exceeded: ${textVal.length}/1500`;
     isValid = false;
   } else {
-    dreamTagsInput.classList.remove('invalid-input');
-    dreamTagsError.textContent = '';
+    textInput.classList.remove('invalid-input');
+    textError.textContent = '';
   }
 
-  submitBtn.disabled = !isValid;
+  const tagsVal = tagsInput.value;
+
+  const rawTags = tagsVal.split(',');
+  const hasEmptyOrSpacesOnlyTag = rawTags.some(t => t.length > 0 && t.trim().length === 0);
+
+  if (hasEmptyOrSpacesOnlyTag) {
+    tagsInput.classList.add('invalid-input');
+    tagsError.textContent = 'Tags cannot consist only of spaces';
+    isValid = false;
+  } else if (!tagsRegex.test(tagsVal)) {
+    tagsInput.classList.add('invalid-input');
+    tagsError.textContent = 'Allowed characters: Latin letters, spaces, and commas';
+    isValid = false;
+  } else {
+    const parsedTags = rawTags.map(t => t.trim()).filter(t => t.length > 0);
+
+    if (parsedTags.length > 15) {
+      tagsInput.classList.add('invalid-input');
+      tagsError.textContent = `Tag limit exceeded: ${parsedTags.length}/15 max tags`;
+      isValid = false;
+    } else {
+      tagsInput.classList.remove('invalid-input');
+      tagsError.textContent = '';
+    }
+  }
+
+  if (targetBtn) {
+    targetBtn.disabled = !isValid;
+  }
   return isValid;
 }
 
-dreamTextInput.addEventListener('input', validateForm);
-dreamTagsInput.addEventListener('input', validateForm);
+if (dreamTextInput) dreamTextInput.addEventListener('input', () => validateForm());
+if (dreamTagsInput) dreamTagsInput.addEventListener('input', () => validateForm());
 
-for (let d = 1; d <= 31; d++) {
-  const opt = document.createElement('option');
-  opt.value = d;
-  opt.textContent = d;
-  filterDaySelect.appendChild(opt);
+function switchView(viewName) {
+  currentView = viewName;
+
+  viewJournal.classList.remove('active');
+  viewPublic.classList.remove('active');
+
+  navMyDreams.classList.remove('active');
+  navPublicDreams.classList.remove('active');
+
+  if (viewName === 'journal') {
+    viewJournal.classList.add('active');
+    navMyDreams.classList.add('active');
+  } else if (viewName === 'public') {
+    viewPublic.classList.add('active');
+    navPublicDreams.classList.add('active');
+  }
 }
 
-[filterDaySelect, filterMonthSelect, filterYearSelect].forEach(select => {
-  select.addEventListener('change', () => {
+if (navMyDreams) navMyDreams.addEventListener('click', () => switchView('journal'));
+if (navPublicDreams) navPublicDreams.addEventListener('click', () => switchView('public'));
+
+if (filterDaySelect) {
+  for (let d = 1; d <= 31; d++) {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d;
+    filterDaySelect.appendChild(opt);
+  }
+
+  [filterDaySelect, filterMonthSelect, filterYearSelect].forEach(select => {
+    select.addEventListener('change', () => {
+      currentPage = 1;
+      renderDreamsList();
+    });
+  });
+}
+
+if (sortSelect) {
+  sortSelect.addEventListener('change', (e) => {
+    currentSort = e.target.value;
+    currentPage = 1;
     renderDreamsList();
   });
-});
+}
+
+if (prevPageBtn) {
+  prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      renderDreamsList();
+    }
+  });
+}
+
+if (nextPageBtn) {
+  nextPageBtn.addEventListener('click', () => {
+    currentPage++;
+    renderDreamsList();
+  });
+}
 
 function updateSliderBackground(slider) {
+  if (!slider) return;
   const min = parseFloat(slider.min) || -10;
   const max = parseFloat(slider.max) || 10;
   const val = parseFloat(slider.value);
@@ -122,15 +218,19 @@ function updateSliderBackground(slider) {
   slider.style.setProperty('background', gradient, 'important');
 }
 
-moodSlider.addEventListener('input', (e) => {
-  moodVal.textContent = e.target.value;
-  updateSliderBackground(e.target);
-});
+if (moodSlider) {
+  moodSlider.addEventListener('input', (e) => {
+    moodVal.textContent = e.target.value;
+    updateSliderBackground(e.target);
+  });
+}
 
-realismSlider.addEventListener('input', (e) => {
-  realismVal.textContent = e.target.value;
-  updateSliderBackground(e.target);
-});
+if (realismSlider) {
+  realismSlider.addEventListener('input', (e) => {
+    realismVal.textContent = e.target.value;
+    updateSliderBackground(e.target);
+  });
+}
 
 const centerAxesPlugin = {
   id: 'centerAxes',
@@ -167,23 +267,26 @@ function initCharts() {
     plugins: [centerAxesPlugin],
     options: {
       responsive: true,
-      maintainAspectRatio: false,
+      maintainAspectRatio: true,
+      aspectRatio: 1,
       scales: {
         x: {
           min: -10,
           max: 10,
-          title: { display: true, text: '◄ Negative (-10) | Positive (+10) ►', color: '#00ff87' },
-          grid: { 
-            color: (ctx) => ctx.tick.value === 0 ? 'transparent' : '#1b2e1e' 
-          }
+          ticks: {
+            stepSize: 2
+          },
+          title: { display: true, text: 'Mood', color: '#00ff87' },
+          grid: { color: (ctx) => ctx.tick.value === 0 ? 'transparent' : '#1b2e1e' }
         },
         y: {
           min: -10,
           max: 10,
-          title: { display: true, text: '◄ Fantasy (-10) | Realistic (+10) ►', color: '#00ff87' },
-          grid: { 
-            color: (ctx) => ctx.tick.value === 0 ? 'transparent' : '#1b2e1e' 
-          }
+          ticks: {
+            stepSize: 2
+          },
+          title: { display: true, text: 'Realism', color: '#00ff87' },
+          grid: { color: (ctx) => ctx.tick.value === 0 ? 'transparent' : '#1b2e1e' }
         }
       },
       plugins: {
@@ -197,24 +300,70 @@ function initCharts() {
     }
   });
 
-  const ctxMood = document.getElementById('mood-timeline-chart').getContext('2d');
-  moodTimelineChart = new Chart(ctxMood, {
-    type: 'line',
+  const ctxTags = document.getElementById('tags-bar-chart').getContext('2d');
+  tagsBarChart = new Chart(ctxTags, {
+    type: 'bar',
     data: { labels: [], datasets: [] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              if (!items.length) return '';
+              const idx = items[0].dataIndex;
+              return items[0].chart.data.fullTags ? '#' + items[0].chart.data.fullTags[idx] : items[0].label;
+            }
+          }
+        }
+      },
       scales: {
-        x: { display: false },
-        y: { min: -10, max: 10, grid: { color: '#1b2e1e' } }
+        x: { ticks: { color: '#6b8a70' }, grid: { display: false } },
+        y: { ticks: { precision: 0, color: '#6b8a70' }, grid: { color: '#1b2e1e' } }
       }
     }
+  });
+
+  const timelineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { 
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          title: (items) => items[0] ? items[0].label : ''
+        }
+      }
+    },
+    scales: {
+      x: { 
+        ticks: { display: false },
+        grid: { display: false } 
+      },
+      y: { min: -10, max: 10, ticks: { stepSize: 2 }, grid: { color: '#1b2e1e' } }
+    }
+  };
+
+  const ctxMood = document.getElementById('mood-timeline-chart').getContext('2d');
+  moodTimelineChart = new Chart(ctxMood, {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: timelineOptions
+  });
+
+  const ctxRealism = document.getElementById('realism-timeline-chart').getContext('2d');
+  realismTimelineChart = new Chart(ctxRealism, {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: timelineOptions
   });
 }
 
 function updateAuthUI() {
-  if (currentUser) {
+  if (!userDisplay || !authBtn) return;
+  if (currentUser && currentUser !== 'Anonymous') {
     userDisplay.textContent = `👤 ${currentUser}`;
     authBtn.textContent = 'Log Out';
   } else {
@@ -223,39 +372,47 @@ function updateAuthUI() {
   }
 }
 
-authBtn.addEventListener('click', () => {
-  if (currentUser) {
-    currentUser = null;
-    localStorage.removeItem('son_current_user');
+if (authBtn) {
+  authBtn.addEventListener('click', () => {
+    if (currentUser && currentUser !== 'Anonymous') {
+      currentUser = 'Anonymous';
+      localStorage.removeItem('son_current_user');
+      updateAuthUI();
+      updateUI();
+    } else {
+      authModal.style.display = 'flex';
+    }
+  });
+}
+
+if (modalClose) modalClose.addEventListener('click', () => authModal.style.display = 'none');
+
+if (toggleAuthMode) {
+  toggleAuthMode.addEventListener('click', (e) => {
+    e.preventDefault();
+    isSignUpMode = !isSignUpMode;
+    modalTitle.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
+    modalSubmitBtn.textContent = isSignUpMode ? 'Create Account' : 'Log In';
+    authSwitchText.textContent = isSignUpMode ? 'Already have an account?' : "Don't have an account?";
+    toggleAuthMode.textContent = isSignUpMode ? 'Log In' : 'Sign Up';
+  });
+}
+
+if (authForm) {
+  authForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    if (!username) return;
+
+    currentUser = username;
+    localStorage.setItem('son_current_user', currentUser);
+    
+    authModal.style.display = 'none';
+    authForm.reset();
     updateAuthUI();
-  } else {
-    authModal.style.display = 'flex';
-  }
-});
-
-modalClose.addEventListener('click', () => authModal.style.display = 'none');
-
-toggleAuthMode.addEventListener('click', (e) => {
-  e.preventDefault();
-  isSignUpMode = !isSignUpMode;
-  modalTitle.textContent = isSignUpMode ? 'Sign Up' : 'Sign In';
-  modalSubmitBtn.textContent = isSignUpMode ? 'Create Account' : 'Log In';
-  authSwitchText.textContent = isSignUpMode ? 'Already have an account?' : "Don't have an account?";
-  toggleAuthMode.textContent = isSignUpMode ? 'Log In' : 'Sign Up';
-});
-
-authForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const username = document.getElementById('username').value.trim();
-  if (!username) return;
-
-  currentUser = username;
-  localStorage.setItem('son_current_user', currentUser);
-  
-  authModal.style.display = 'none';
-  authForm.reset();
-  updateAuthUI();
-});
+    updateUI();
+  });
+}
 
 function calculateDuration(sleepTime, wakeTime) {
   const [sH, sM] = sleepTime.split(':').map(Number);
@@ -273,63 +430,68 @@ function parseDateParts(dateStr) {
   return { year, month, day, formattedDate };
 }
 
-form.addEventListener('submit', (e) => {
-  e.preventDefault();
+if (form) {
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
 
-  if (!validateForm()) {
-    return;
-  }
+    if (!validateForm()) return;
 
-  const dateStr = dreamDateInput.value;
-  const sleepTime = document.getElementById('sleep-time').value;
-  const wakeTime = document.getElementById('wake-time').value;
-  const text = dreamTextInput.value;
-  const tagsInput = dreamTagsInput.value;
-  const mood = parseInt(moodSlider.value);
-  const realism = parseInt(realismSlider.value);
+    const dateStr = dreamDateInput.value;
+    const sleepTime = document.getElementById('sleep-time').value;
+    const wakeTime = document.getElementById('wake-time').value;
+    const text = dreamTextInput.value;
+    const tagsInput = dreamTagsInput.value;
+    const isPublic = dreamPublicInput.checked;
+    const mood = parseInt(moodSlider.value);
+    const realism = parseInt(realismSlider.value);
 
-  const duration = calculateDuration(sleepTime, wakeTime);
-  const tags = tagsInput 
-    ? tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0) 
-    : [];
+    const duration = calculateDuration(sleepTime, wakeTime);
+    const tags = tagsInput 
+      ? tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0) 
+      : [];
 
-  const { year, month, day, formattedDate } = parseDateParts(dateStr);
+    const { year, month, day, formattedDate } = parseDateParts(dateStr);
 
-  const dream = {
-    id: Date.now(),
-    rawDate: dateStr,
-    year,
-    month,
-    day,
-    formattedDate,
-    sleepTime,
-    wakeTime,
-    duration,
-    text,
-    tags,
-    mood,
-    realism
-  };
+    const dream = {
+      id: Date.now(),
+      createdAt: Date.now(),
+      author: currentUser,
+      isPublic,
+      rawDate: dateStr,
+      year,
+      month,
+      day,
+      formattedDate,
+      sleepTime,
+      wakeTime,
+      duration,
+      text,
+      tags,
+      mood,
+      realism
+    };
 
-  dreams.push(dream);
-  
-  form.reset();
-  dreamDateInput.value = new Date().toISOString().split('T')[0];
-  moodSlider.value = 0;
-  realismSlider.value = 0;
-  moodVal.textContent = "0";
-  realismVal.textContent = "0";
+    dreams.push(dream);
+    saveDreamsToStorage();
+    
+    form.reset();
+    dreamDateInput.value = new Date().toISOString().split('T')[0];
+    moodSlider.value = 0;
+    realismSlider.value = 0;
+    moodVal.textContent = "0";
+    realismVal.textContent = "0";
 
-  updateSliderBackground(moodSlider);
-  updateSliderBackground(realismSlider);
-  validateForm();
+    updateSliderBackground(moodSlider);
+    updateSliderBackground(realismSlider);
+    validateForm();
 
-  updateUI();
-});
+    currentPage = 1;
+    updateUI();
+  });
+}
 
-function deleteDream(id) {
-  dreams = dreams.filter(d => d.id !== id);
-  updateUI();
+function openDreamDetails(id) {
+  window.location.href = `dream.html?id=${id}`;
 }
 
 function toggleTagFilter(tag) {
@@ -338,12 +500,15 @@ function toggleTagFilter(tag) {
   } else {
     selectedTags.add(tag);
   }
+  currentPage = 1;
   renderTagFilters();
   renderDreamsList();
 }
 
 function renderTagFilters() {
-  const allTags = Array.from(new Set(dreams.flatMap(d => d.tags)));
+  if (!tagsFilterContainer) return;
+  const userDreams = dreams.filter(d => d.author === currentUser);
+  const allTags = Array.from(new Set(userDreams.flatMap(d => d.tags)));
 
   selectedTags = new Set(Array.from(selectedTags).filter(t => allTags.includes(t)));
 
@@ -359,7 +524,9 @@ function renderTagFilters() {
 }
 
 function updateYearFilterOptions() {
-  const years = Array.from(new Set(dreams.map(d => d.year))).sort((a, b) => b - a);
+  if (!filterYearSelect) return;
+  const userDreams = dreams.filter(d => d.author === currentUser);
+  const years = Array.from(new Set(userDreams.map(d => d.year))).sort((a, b) => b - a);
   const currentVal = filterYearSelect.value;
   
   filterYearSelect.innerHTML = '<option value="">All Years</option>';
@@ -377,13 +544,20 @@ function updateUI() {
   updateYearFilterOptions();
   renderTagFilters();
   renderDreamsList();
+  renderPublicDreamsList();
   updateAnalytics();
   updateCharts();
 }
 
 function renderDreamsList() {
-  if (dreams.length === 0) {
+  if (!dreamsList) return;
+  const userDreams = dreams.filter(d => d.author === currentUser);
+
+  if (userDreams.length === 0) {
     dreamsList.innerHTML = '<p class="empty-msg">No dreams logged yet. Fill out the form above!</p>';
+    if (pageIndicator) pageIndicator.textContent = 'Page 0 of 0';
+    if (prevPageBtn) prevPageBtn.disabled = true;
+    if (nextPageBtn) nextPageBtn.disabled = true;
     return;
   }
 
@@ -391,7 +565,7 @@ function renderDreamsList() {
   const reqMonth = filterMonthSelect.value ? parseInt(filterMonthSelect.value) : null;
   const reqYear = filterYearSelect.value ? parseInt(filterYearSelect.value) : null;
 
-  const filteredDreams = dreams.filter(d => {
+  let filteredDreams = userDreams.filter(d => {
     if (reqDay !== null && d.day !== reqDay) return false;
     if (reqMonth !== null && d.month !== reqMonth) return false;
     if (reqYear !== null && d.year !== reqYear) return false;
@@ -399,35 +573,81 @@ function renderDreamsList() {
     return true;
   });
 
+  filteredDreams.sort((a, b) => {
+    const createdA = a.createdAt || a.id;
+    const createdB = b.createdAt || b.id;
+    if (currentSort === 'created-desc') return createdB - createdA;
+    if (currentSort === 'created-asc') return createdA - createdB;
+    if (currentSort === 'dream-desc') return b.rawDate.localeCompare(a.rawDate);
+    if (currentSort === 'dream-asc') return a.rawDate.localeCompare(b.rawDate);
+    return 0;
+  });
+
   if (filteredDreams.length === 0) {
     dreamsList.innerHTML = '<p class="empty-msg">No dreams match the selected filters.</p>';
+    if (pageIndicator) pageIndicator.textContent = 'Page 0 of 0';
+    if (prevPageBtn) prevPageBtn.disabled = true;
+    if (nextPageBtn) nextPageBtn.disabled = true;
     return;
   }
 
-  dreamsList.innerHTML = filteredDreams.map(d => `
-    <div class="dream-item">
-      <button class="delete-btn" onclick="deleteDream(${d.id})" title="Delete">&times;</button>
+  const totalPages = Math.ceil(filteredDreams.length / ITEMS_PER_PAGE);
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedDreams = filteredDreams.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  dreamsList.innerHTML = paginatedDreams.map(d => `
+    <div class="dream-item" onclick="openDreamDetails(${d.id})">
       <div class="dream-header">
-        <span class="dream-date">📅 ${d.formattedDate} (${d.sleepTime} - ${d.wakeTime}, ${d.duration}h)</span>
+        <span class="dream-date">📅 ${d.formattedDate} (${d.sleepTime} - ${d.wakeTime}, ${d.duration}h) ${d.isPublic ? '<span class="public-badge">Public</span>' : ''}</span>
         <span class="dream-scores">Mood: <b>${d.mood}</b> | Realism: <b>${d.realism}</b></span>
       </div>
-      <p>${d.text}</p>
+      <p class="dream-preview-text">${d.text}</p>
+      ${d.tags.length ? `<div class="dream-tags">${d.tags.map(t => `<span class="tag">#${t}</span>`).join('')}</div>` : ''}
+    </div>
+  `).join('');
+
+  if (pageIndicator) pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
+  if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
+}
+
+function renderPublicDreamsList() {
+  if (!publicDreamsList) return;
+  const publicDreams = dreams.filter(d => d.isPublic);
+
+  if (publicDreams.length === 0) {
+    publicDreamsList.innerHTML = '<p class="empty-msg">No public dreams shared yet.</p>';
+    return;
+  }
+
+  publicDreamsList.innerHTML = publicDreams.map(d => `
+    <div class="dream-item" onclick="openDreamDetails(${d.id})">
+      <div class="dream-header">
+        <span class="dream-date">📅 ${d.formattedDate}</span>
+        <span class="dream-author">👤 ${d.author}</span>
+      </div>
+      <p class="dream-preview-text">${d.text}</p>
       ${d.tags.length ? `<div class="dream-tags">${d.tags.map(t => `<span class="tag">#${t}</span>`).join('')}</div>` : ''}
     </div>
   `).join('');
 }
 
 function updateAnalytics() {
-  if (!dreams.length) {
+  const userDreams = dreams.filter(d => d.author === currentUser);
+
+  if (!userDreams.length) {
     document.getElementById('total-dreams').textContent = '0';
     document.getElementById('avg-duration').textContent = '0h';
     document.getElementById('avg-mood').textContent = '0';
     return;
   }
 
-  const total = dreams.length;
-  const avgDur = (dreams.reduce((acc, d) => acc + parseFloat(d.duration), 0) / total).toFixed(1);
-  const avgM = (dreams.reduce((acc, d) => acc + d.mood, 0) / total).toFixed(1);
+  const total = userDreams.length;
+  const avgDur = (userDreams.reduce((acc, d) => acc + parseFloat(d.duration), 0) / total).toFixed(1);
+  const avgM = (userDreams.reduce((acc, d) => acc + d.mood, 0) / total).toFixed(1);
 
   document.getElementById('total-dreams').textContent = total;
   document.getElementById('avg-duration').textContent = `${avgDur}h`;
@@ -435,9 +655,11 @@ function updateAnalytics() {
 }
 
 function updateCharts() {
+  const userDreams = dreams.filter(d => d.author === currentUser);
+
   matrixChart.data.datasets = [{
     label: 'Dreams',
-    data: dreams.map(d => ({
+    data: userDreams.map(d => ({
       x: d.mood,
       y: d.realism,
       formattedDate: d.formattedDate,
@@ -451,30 +673,69 @@ function updateCharts() {
   }];
   matrixChart.update();
 
-  const sortedDreams = [...dreams].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+  const tagCounts = {};
+  userDreams.flatMap(d => d.tags).forEach(t => {
+    tagCounts[t] = (tagCounts[t] || 0) + 1;
+  });
 
-  moodTimelineChart.data.labels = sortedDreams.map(d => d.formattedDate);
+  const sortedTags = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  const fullTagNames = sortedTags.map(t => t[0]);
+  const truncatedLabels = fullTagNames.map(t => t.length > 6 ? '#' + t.substring(0, 5) + '…' : '#' + t);
+
+  tagsBarChart.data.labels = truncatedLabels;
+  tagsBarChart.data.fullTags = fullTagNames;
+  tagsBarChart.data.datasets = [{
+    data: sortedTags.map(t => t[1]),
+    backgroundColor: '#00ff87',
+    borderRadius: 4
+  }];
+  tagsBarChart.update();
+
+  const last10Dreams = [...userDreams]
+    .sort((a, b) => a.rawDate.localeCompare(b.rawDate))
+    .slice(-10);
+
+  const labels = last10Dreams.map(d => d.formattedDate);
+
+  moodTimelineChart.data.labels = labels;
   moodTimelineChart.data.datasets = [{
-    data: sortedDreams.map(d => d.mood),
+    data: last10Dreams.map(d => d.mood),
     borderColor: '#00ff87',
     backgroundColor: 'rgba(0, 255, 135, 0.15)',
     fill: true,
     tension: 0.3
   }];
   moodTimelineChart.update();
+
+  realismTimelineChart.data.labels = labels;
+  realismTimelineChart.data.datasets = [{
+    data: last10Dreams.map(d => d.realism),
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    fill: true,
+    tension: 0.3
+  }];
+  realismTimelineChart.update();
 }
 
 window.onload = () => {
-  initCharts();
-  updateAuthUI();
-  updateUI();
+  if (document.getElementById('matrix-chart')) {
+    initCharts();
+    updateAuthUI();
+    updateUI();
 
-  moodSlider.value = 0;
-  realismSlider.value = 0;
-  moodVal.textContent = "0";
-  realismVal.textContent = "0";
+    if (moodSlider) {
+      moodSlider.value = 0;
+      realismSlider.value = 0;
+      moodVal.textContent = "0";
+      realismVal.textContent = "0";
 
-  updateSliderBackground(moodSlider);
-  updateSliderBackground(realismSlider);
-  validateForm();
+      updateSliderBackground(moodSlider);
+      updateSliderBackground(realismSlider);
+      validateForm();
+    }
+  }
 };

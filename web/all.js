@@ -1,0 +1,111 @@
+let currentUser = localStorage.getItem('son_current_user') || 'Anonymous';
+let dreams = JSON.parse(localStorage.getItem('son_dreams') || '[]');
+
+const userDisplay = document.getElementById('user-display');
+const publicDreamsList = document.getElementById('public-dreams-list');
+const sortSelect = document.getElementById('sort-select');
+const prevPageBtn = document.getElementById('prev-page-btn');
+const nextPageBtn = document.getElementById('next-page-btn');
+const pageIndicator = document.getElementById('page-indicator');
+
+let currentPage = 1;
+const ITEMS_PER_PAGE = 4;
+let currentSort = 'created-desc';
+
+if (userDisplay && currentUser !== 'Anonymous') {
+  userDisplay.textContent = `👤 ${currentUser}`;
+}
+
+if (sortSelect) {
+  sortSelect.addEventListener('change', (e) => {
+    currentSort = e.target.value;
+    currentPage = 1;
+    renderPublicDreams();
+  });
+}
+
+if (prevPageBtn) {
+  prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      renderPublicDreams();
+    }
+  });
+}
+
+if (nextPageBtn) {
+  nextPageBtn.addEventListener('click', () => {
+    currentPage++;
+    renderPublicDreams();
+  });
+}
+
+function openDreamDetails(id) {
+  window.location.href = `dream.html?id=${id}`;
+}
+
+function renderPublicDreams() {
+  if (!publicDreamsList) return;
+
+  const publicDreams = dreams.filter(d => d.isPublic);
+
+  if (publicDreams.length === 0) {
+    publicDreamsList.innerHTML = '<p class="empty-msg">No public dreams shared yet.</p>';
+    if (pageIndicator) pageIndicator.textContent = 'Page 0 of 0';
+    if (prevPageBtn) prevPageBtn.disabled = true;
+    if (nextPageBtn) nextPageBtn.disabled = true;
+    return;
+  }
+
+  publicDreams.sort((a, b) => {
+    const createdA = a.createdAt || a.id;
+    const createdB = b.createdAt || b.id;
+    if (currentSort === 'created-desc') return createdB - createdA;
+    if (currentSort === 'created-asc') return createdA - createdB;
+    if (currentSort === 'dream-desc') return b.rawDate.localeCompare(a.rawDate);
+    if (currentSort === 'dream-asc') return a.rawDate.localeCompare(b.rawDate);
+    return 0;
+  });
+
+  const totalPages = Math.ceil(publicDreams.length / ITEMS_PER_PAGE);
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedDreams = publicDreams.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  publicDreamsList.innerHTML = paginatedDreams.map(d => {
+    const isOwner = d.author === currentUser;
+    return `
+      <div class="card dream-expanded-item" style="margin-bottom: 16px; background: #050806;">
+        <div class="dream-header" style="border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span class="dream-author" style="font-weight: 700; color: var(--accent-color); margin-right: 8px;">👤 ${d.author || 'Anonymous'}</span>
+            <span class="dream-date" style="font-size: 0.85rem; color: var(--text-muted);">📅 ${d.formattedDate}</span>
+          </div>
+          <span class="dream-scores" style="font-size: 0.85rem;">Mood: <b>${d.mood}</b> | Realism: <b>${d.realism}</b></span>
+        </div>
+
+        <p class="dream-full-text" style="white-space: pre-wrap; margin: 12px 0; font-size: 1rem; line-height: 1.6; color: var(--text-main);">${d.text}</p>
+
+        ${d.tags && d.tags.length ? `
+          <div class="dream-tags" style="margin-top: 12px; margin-bottom: 12px;">
+            ${d.tags.map(t => `<span class="tag">#${t}</span>`).join('')}
+          </div>
+        ` : ''}
+
+        ${isOwner ? `
+          <div style="margin-top: 12px; text-align: right;">
+            <button class="btn btn-outline" style="width: auto; padding: 6px 12px; font-size: 0.85rem;" onclick="openDreamDetails(${d.id})">Edit My Dream</button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  if (pageIndicator) pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+  if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
+  if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
+}
+
+window.onload = renderPublicDreams;

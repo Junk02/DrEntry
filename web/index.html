@@ -21,138 +21,195 @@
         </div>
       </div>
       <p class="subtitle">Map and analytics of your dreams</p>
+
+      <nav class="main-nav">
+        <a href="index.html" class="nav-btn active" style="text-decoration: none; display: inline-block;">My Journal</a>
+        <a href="all.html" class="nav-btn" style="text-decoration: none; display: inline-block;">Public Feed</a>
+      </nav>
     </header>
 
     <main class="main-content">
-      <section class="card form-card">
-        <h2>Log a Dream</h2>
-        <form id="dream-form">
-          <div class="form-row form-row-3">
-            <div class="form-group">
-              <label for="dream-date">Date</label>
-              <input type="date" id="dream-date" lang="en-US" required>
-            </div>
-            <div class="form-group">
-              <label for="sleep-time">Bedtime</label>
-              <input type="time" id="sleep-time" required>
-            </div>
-            <div class="form-group">
-              <label for="wake-time">Wake-up time</label>
-              <input type="time" id="wake-time" required>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="dream-text">Dream description</label>
-            <textarea id="dream-text" rows="3" placeholder="What did you dream about?" required></textarea>
-            <div id="dream-text-error" class="error-msg"></div>
-          </div>
-
-          <div class="form-group">
-            <label for="dream-tags">Tags (comma separated)</label>
-            <input type="text" id="dream-tags" placeholder="flying, lucid, space, work">
-            <div id="dream-tags-error" class="error-msg"></div>
-          </div>
-
-          <div class="sliders-grid">
-            <div class="form-group">
-              <div class="slider-label">
-                <span>Mood (X)</span>
-                <span id="mood-val" class="badge">0</span>
+      <div id="view-journal" class="view-section active">
+        <section class="card form-card">
+          <h2>Log a Dream</h2>
+          <form id="dream-form">
+            <div class="form-row form-row-3">
+              <div class="form-group">
+                <label for="dream-date">Date</label>
+                <input type="date" id="dream-date" lang="en-US" required>
               </div>
-              <div class="range-hint"><span>-10 (Terrible)</span><span>+10 (Wonderful)</span></div>
-              <input type="range" id="mood-score" min="-10" max="10" value="0">
+              <div class="form-group">
+                <label for="sleep-time">Bedtime</label>
+                <input type="time" id="sleep-time" required>
+              </div>
+              <div class="form-group">
+                <label for="wake-time">Wake-up time</label>
+                <input type="time" id="wake-time" required>
+              </div>
             </div>
 
             <div class="form-group">
-              <div class="slider-label">
-                <span>Realism (Y)</span>
-                <span id="realism-val" class="badge">0</span>
+              <label for="dream-text">Dream description</label>
+              <textarea id="dream-text" rows="3" placeholder="What did you dream about?" required></textarea>
+              <div id="dream-text-error" class="error-msg"></div>
+            </div>
+
+            <div class="form-group">
+              <label for="dream-tags">Tags (comma separated)</label>
+              <input type="text" id="dream-tags" placeholder="flying, lucid, space, work">
+              <div id="dream-tags-error" class="error-msg"></div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="dream-public">
+                <span>Make this dream public (visible to everyone)</span>
+              </label>
+            </div>
+
+            <div class="sliders-grid">
+              <div class="form-group">
+                <div class="slider-label">
+                  <span>Mood</span>
+                  <span id="mood-val" class="badge">0</span>
+                </div>
+                <div class="range-hint"><span>-10 (Terrible)</span><span>+10 (Wonderful)</span></div>
+                <input type="range" id="mood-score" min="-10" max="10" value="0">
               </div>
-              <div class="range-hint"><span>-10 (Fantasy)</span><span>+10 (Reality)</span></div>
-              <input type="range" id="realism-score" min="-10" max="10" value="0">
+
+              <div class="form-group">
+                <div class="slider-label">
+                  <span>Realism</span>
+                  <span id="realism-val" class="badge">0</span>
+                </div>
+                <div class="range-hint"><span>-10 (Fantasy)</span><span>+10 (Reality)</span></div>
+                <input type="range" id="realism-score" min="-10" max="10" value="0">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save dream</button>
+          </form>
+        </section>
+
+        <section class="card chart-card">
+          <div class="chart-header">
+            <h2>Dream Map</h2>
+            <span class="chart-subtitle">(X: Mood, Y: Realism)</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="matrix-chart"></canvas>
+          </div>
+        </section>
+        <section class="analytics-grid">
+          <div class="card stat-card">
+            <h3>Statistics</h3>
+            <div class="metrics">
+              <div class="metric-item">
+                <span class="metric-value" id="avg-duration">0h</span>
+                <span class="metric-label">Avg. Duration</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-value" id="avg-mood">0</span>
+                <span class="metric-label">Avg. Mood</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-value" id="total-dreams">0</span>
+                <span class="metric-label">Total Entries</span>
+              </div>
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary">Save dream</button>
-        </form>
-      </section>
-      <section class="card chart-card">
-        <div class="chart-header">
-          <h2>Dream Map</h2>
-          <span class="chart-subtitle">(X: Emotion, Y: Realism)</span>
-        </div>
-        <div class="chart-container">
-          <canvas id="matrix-chart"></canvas>
-        </div>
-      </section>
-      <section class="analytics-grid">
-        <div class="card stat-card">
-          <h3>Statistics</h3>
-          <div class="metrics">
-            <div class="metric-item">
-              <span class="metric-value" id="avg-duration">0h</span>
-              <span class="metric-label">Avg. Duration</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-value" id="avg-mood">0</span>
-              <span class="metric-label">Happiness Index</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-value" id="total-dreams">0</span>
-              <span class="metric-label">Total Entries</span>
+          <div class="card stat-card">
+            <h3>Top 10 Most Used Tags</h3>
+            <div class="chart-container-sm">
+              <canvas id="tags-bar-chart"></canvas>
             </div>
           </div>
-        </div>
+        </section>
+        <section class="dynamics-grid">
+          <div class="card stat-card">
+            <h3>Mood Dynamics</h3>
+            <div class="chart-container-sm">
+              <canvas id="mood-timeline-chart"></canvas>
+            </div>
+          </div>
 
-        <div class="card stat-card">
-          <h3>Mood Dynamics</h3>
-          <div class="chart-container-sm">
-            <canvas id="mood-timeline-chart"></canvas>
+          <div class="card stat-card">
+            <h3>Realism Dynamics</h3>
+            <div class="chart-container-sm">
+              <canvas id="realism-timeline-chart"></canvas>
+            </div>
           </div>
-        </div>
-      </section>
-      <section class="card list-card">
-        <h2>Dream Journal</h2>
-        <div class="filter-section">
-          <div class="filter-label">Filter by date:</div>
-          <div class="date-filters-grid">
-            <select id="filter-day" class="filter-select">
-              <option value="">All Days</option>
+        </section>
+
+        <section class="card list-card">
+          <h2>Dream Journal</h2>
+          
+          <div class="filter-section">
+            <div class="filter-label">Sort by:</div>
+            <select id="sort-select" class="filter-select" style="max-width: 250px;">
+              <option value="created-desc">Post Date (Newest First)</option>
+              <option value="created-asc">Post Date (Oldest First)</option>
+              <option value="dream-desc">Dream Date (Newest First)</option>
+              <option value="dream-asc">Dream Date (Oldest First)</option>
             </select>
-
-            <select id="filter-month" class="filter-select">
-              <option value="">All Months</option>
-              <option value="1">January</option>
-              <option value="2">February</option>
-              <option value="3">March</option>
-              <option value="4">April</option>
-              <option value="5">May</option>
-              <option value="6">June</option>
-              <option value="7">July</option>
-              <option value="8">August</option>
-              <option value="9">September</option>
-              <option value="10">October</option>
-              <option value="11">November</option>
-              <option value="12">December</option>
-            </select>
-
-            <select id="filter-year" class="filter-select">
-              <option value="">All Years</option>
-            </select>
           </div>
-        </div>
-        <div class="filter-section">
-          <div class="filter-label">Filter by tags:</div>
-          <div id="tags-filter-container" class="tags-filter-container">
-            <span class="empty-filter-msg">No tags added yet</span>
-          </div>
-        </div>
 
-        <div id="dreams-list" class="dreams-list">
-          <p class="empty-msg">No dreams logged yet. Fill out the form above!</p>
-        </div>
-      </section>
+          <div class="filter-section">
+            <div class="filter-label">Filter by date:</div>
+            <div class="date-filters-grid">
+              <select id="filter-day" class="filter-select">
+                <option value="">All Days</option>
+              </select>
+
+              <select id="filter-month" class="filter-select">
+                <option value="">All Months</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+
+              <select id="filter-year" class="filter-select">
+                <option value="">All Years</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter-section">
+            <div class="filter-label">Filter by tags:</div>
+            <div id="tags-filter-container" class="tags-filter-container">
+              <span class="empty-filter-msg">No tags added yet</span>
+            </div>
+          </div>
+
+          <div id="dreams-list" class="dreams-list">
+            <p class="empty-msg">No dreams logged yet. Fill out the form above!</p>
+          </div>
+          <div class="pagination-controls" id="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+            <button id="prev-page-btn" class="btn btn-outline" style="width: auto;">← Previous</button>
+            <span id="page-indicator" style="font-size: 0.85rem; color: var(--text-muted);">Page 1</span>
+            <button id="next-page-btn" class="btn btn-outline" style="width: auto;">Next →</button>
+          </div>
+        </section>
+      </div>
+      <div id="view-public" class="view-section">
+        <section class="card list-card">
+          <h2>Public Dreams Feed</h2>
+          <p class="subtitle" style="margin-bottom: 20px;">Explore dreams shared by the community</p>
+          <div id="public-dreams-list" class="dreams-list">
+            <p class="empty-msg">No public dreams shared yet.</p>
+          </div>
+        </section>
+      </div>
     </main>
   </div>
   <div id="auth-modal" class="modal">
