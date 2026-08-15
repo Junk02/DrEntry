@@ -109,3 +109,23 @@ def get_public_sleep_entries(db: Session = Depends(get_db)):
         for entry in entries
     ]
 
+
+@router.get("/sleep/public/{entry_id}")
+def get_public_sleep_entry(entry_id: int, db: Session = Depends(get_db)):
+    entry = db.query(SleepEntry).filter(SleepEntry.id == entry_id, SleepEntry.public == True).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Public entry not found")
+
+    return {
+        "id": entry.id,
+        "date": entry.date,
+        "sleep_time": entry.sleep_time,
+        "wake_time": entry.wake_time,
+        "dream_text": entry.dream_text,
+        "tags": entry.tags,
+        "mood": entry.mood,
+        "realism": entry.realism,
+        "author": entry.user.username if entry.user else None,
+        "created_at": entry.created_at
+    }
+

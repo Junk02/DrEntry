@@ -52,8 +52,8 @@ if (nextPageBtn) {
   });
 }
 
-function openDreamDetails(id) {
-  window.location.href = `dream.html?id=${id}`;
+function openPublicDreamDetails(id) {
+  window.location.href = `public_dream.html?id=${id}`;
 }
 
 function renderPublicDreams() {
@@ -89,8 +89,9 @@ function renderPublicDreams() {
 
   publicDreamsList.innerHTML = paginatedDreams.map(d => {
     const isOwner = d.author === currentUser;
+    const shortText = (d.text || '').length > 50 ? (d.text.substring(0, 50) + '...') : d.text;
     return `
-      <div class="card dream-expanded-item" style="margin-bottom: 16px; background: #050806;">
+      <div class="card dream-expanded-item" style="margin-bottom: 16px; background: #050806; cursor: pointer;" onclick="openPublicDreamDetails(${d.id})">
         <div class="dream-header" style="border-bottom: 1px solid var(--panel-border); padding-bottom: 10px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
           <div>
             <span class="dream-author" style="font-weight: 700; color: var(--accent-color); margin-right: 8px;">👤 ${d.author || 'Anonymous'}</span>
@@ -99,7 +100,7 @@ function renderPublicDreams() {
           <span class="dream-scores" style="font-size: 0.85rem;">Mood: <b>${d.mood}</b> | Realism: <b>${d.realism}</b></span>
         </div>
 
-        <p class="dream-full-text" style="white-space: pre-wrap; margin: 12px 0; font-size: 1rem; line-height: 1.6; color: var(--text-main);">${d.text}</p>
+        <p class="dream-preview-text" style="margin: 12px 0; font-size: 1rem; line-height: 1.6;">${shortText}</p>
 
         ${d.tags && d.tags.length ? `
           <div class="dream-tags" style="margin-top: 12px; margin-bottom: 12px;">
@@ -109,7 +110,7 @@ function renderPublicDreams() {
 
         ${isOwner ? `
           <div style="margin-top: 12px; text-align: right;">
-            <button class="btn btn-outline" style="width: auto; padding: 6px 12px; font-size: 0.85rem;" onclick="openDreamDetails(${d.id})">Edit My Dream</button>
+            <button class="btn btn-outline" style="width: auto; padding: 6px 12px; font-size: 0.85rem;" onclick="window.location.href='dream.html?id=${d.id}'">Edit My Dream</button>
           </div>
         ` : ''}
       </div>

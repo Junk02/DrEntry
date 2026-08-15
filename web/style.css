@@ -603,6 +603,17 @@ canvas {
   overflow-wrap: break-word;
 }
 
+/* Ensure long words in full public view wrap and preserve newlines */
+.public-dream-text,
+.dream-full-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  color: var(--text-main);
+  line-height: 1.6;
+  font-size: 1rem;
+}
+
 .dream-tags {
   display: flex;
   gap: 6px;
