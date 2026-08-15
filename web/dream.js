@@ -29,7 +29,23 @@ function calculateDuration(sleepTime, wakeTime) {
 }
 
 function parseDateParts(dateStr) {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  let year, month, day;
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/').map(s => s.trim());
+    month = Number(parts[0]);
+    day = Number(parts[1]);
+    year = Number(parts[2]);
+  } else if (dateStr.includes('-')) {
+    const parts = dateStr.split('-').map(Number);
+    year = parts[0];
+    month = parts[1];
+    day = parts[2];
+  } else {
+    const d = new Date(dateStr);
+    year = d.getFullYear();
+    month = d.getMonth() + 1;
+    day = d.getDate();
+  }
   const dateObj = new Date(year, month - 1, day);
   const formattedDate = dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
   return { year, month, day, formattedDate };
@@ -134,16 +150,16 @@ function renderDreamDetails() {
       <h2>Edit Dream</h2>
       <div class="form-row form-row-3">
         <div class="form-group">
-          <label for="edit-dream-date">Date</label>
-          <input type="date" id="edit-dream-date" value="${dream.rawDate}" required>
+          <label for="edit-dream-date">Date (mm/dd/yyyy)</label>
+          <input type="text" id="edit-dream-date" value="${(function(){const p=dream.rawDate.includes('/')?dream.rawDate:dream.rawDate; if(p.includes('-')){const a=p.split('-'); return `${String(a[1]).padStart(2,'0')}/${String(a[2]).padStart(2,'0')}/${a[0]}`;} return p;})()}" required placeholder="mm/dd/yyyy">
         </div>
         <div class="form-group">
-          <label for="edit-sleep-time">Bedtime</label>
-          <input type="time" id="edit-sleep-time" value="${dream.sleepTime}" required>
+          <label for="edit-sleep-time">Bedtime (24h)</label>
+          <input type="text" id="edit-sleep-time" value="${dream.sleepTime}" required maxlength="5" placeholder="22:30" pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$">
         </div>
         <div class="form-group">
-          <label for="edit-wake-time">Wake up time</label>
-          <input type="time" id="edit-wake-time" value="${dream.wakeTime}" required>
+          <label for="edit-wake-time">Wake up time (24h)</label>
+          <input type="text" id="edit-wake-time" value="${dream.wakeTime}" required maxlength="5" placeholder="07:15" pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$">
         </div>
       </div>
 
@@ -237,16 +253,34 @@ function renderDreamDetails() {
 
     editText.addEventListener('input', validate);
     editTags.addEventListener('input', validate);
+    if (editSleep) editSleep.addEventListener('input', () => { if (editSleep.checkValidity()) editSleep.classList.remove('invalid-input'); });
+    if (editWake) editWake.addEventListener('input', () => { if (editWake.checkValidity()) editWake.classList.remove('invalid-input'); });
 
     saveBtn.addEventListener('click', () => {
       if (!validate()) return;
 
       const dateStr = editDate.value;
+      let serverDate = dateStr;
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/').map(s => s.trim());
+        const mm = parts[0].padStart(2, '0');
+        const dd = parts[1].padStart(2, '0');
+        const yyyy = parts[2];
+        serverDate = `${yyyy}-${mm}-${dd}`;
+      } else if (!dateStr.includes('-')) {
+        const _d = new Date(dateStr);
+        const mm = String(_d.getMonth() + 1).padStart(2, '0');
+        const dd = String(_d.getDate()).padStart(2, '0');
+        const yyyy = _d.getFullYear();
+        serverDate = `${yyyy}-${mm}-${dd}`;
+      }
       const sleepTime = editSleep.value;
       const wakeTime = editWake.value;
-      const { year, month, day, formattedDate } = parseDateParts(dateStr);
+      if (editSleep && !editSleep.checkValidity()) { editSleep.classList.add('invalid-input'); return; }
+      if (editWake && !editWake.checkValidity()) { editWake.classList.add('invalid-input'); return; }
+      const { year, month, day, formattedDate } = parseDateParts(serverDate);
 
-      dream.rawDate = dateStr;
+      dream.rawDate = serverDate;
       dream.year = year;
       dream.month = month;
       dream.day = day;

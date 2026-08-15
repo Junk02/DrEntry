@@ -44,7 +44,14 @@ const nextPageBtn = document.getElementById('next-page-btn');
 const pageIndicator = document.getElementById('page-indicator');
 
 if (dreamDateInput) {
-  dreamDateInput.value = new Date().toISOString().split('T')[0];
+  if (dreamDateInput.type === 'date') {
+    dreamDateInput.value = new Date().toISOString().split('T')[0];
+  } else {
+    const _d = new Date();
+    const _m = String(_d.getMonth() + 1).padStart(2, '0');
+    const _day = String(_d.getDate()).padStart(2, '0');
+    dreamDateInput.value = `${_m}/${_day}/${_d.getFullYear()}`;
+  }
 }
 
 const authModal = document.getElementById('auth-modal');
@@ -500,6 +507,10 @@ if (authForm) {
   const __passEl = document.getElementById('password');
   if (__userEl) __userEl.addEventListener('input', checkAuthUsername);
   if (__passEl) __passEl.addEventListener('input', checkAuthPassword);
+  const __sleepEl = document.getElementById('sleep-time');
+  const __wakeEl = document.getElementById('wake-time');
+  if (__sleepEl) __sleepEl.addEventListener('input', () => { if (__sleepEl.checkValidity()) __sleepEl.classList.remove('invalid-input'); });
+  if (__wakeEl) __wakeEl.addEventListener('input', () => { if (__wakeEl.checkValidity()) __wakeEl.classList.remove('invalid-input'); });
 
   async function fetchMyDreamsFromServer() {
     if (__fetchMyDreamsPromise) return __fetchMyDreamsPromise;
@@ -552,7 +563,6 @@ if (authForm) {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
-    // validate and highlight immediately if invalid
     const userEl = document.getElementById('username');
     const passEl = document.getElementById('password');
     const usernameValid = authUsernameRegex.test(username);
@@ -587,7 +597,6 @@ if (authForm) {
       localStorage.setItem('son_token', token);
       currentUser = username;
       localStorage.setItem('son_current_user', currentUser);
-      // after successful register+login, ensure modal shows signed-in state
       isSignUpMode = false;
       toggleAuthMode.textContent = 'Sign Up';
       modalTitle.textContent = 'Sign In';
@@ -595,7 +604,6 @@ if (authForm) {
       await fetchMyDreamsFromServer();
       authModal.style.display = 'none';
       authForm.reset();
-      // clear per-field auth errors after successful auth
       const userErrEl2 = document.getElementById('auth-username-error');
       const passErrEl2 = document.getElementById('auth-password-error');
       if (userErrEl2) userErrEl2.textContent = '';
@@ -610,7 +618,6 @@ if (authForm) {
       modalSubmitBtn.disabled = false;
     }
   });
-  // expose loader globally so we can call it on page load
   window.fetchMyDreamsFromServer = fetchMyDreamsFromServer;
 }
 
@@ -624,7 +631,23 @@ function calculateDuration(sleepTime, wakeTime) {
 }
 
 function parseDateParts(dateStr) {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  let year, month, day;
+  if (dateStr.includes('/')) {
+    const parts = dateStr.split('/').map(s => s.trim());
+    month = Number(parts[0]);
+    day = Number(parts[1]);
+    year = Number(parts[2]);
+  } else if (dateStr.includes('-')) {
+    const parts = dateStr.split('-').map(Number);
+    year = parts[0];
+    month = parts[1];
+    day = parts[2];
+  } else {
+    const d = new Date(dateStr);
+    year = d.getFullYear();
+    month = d.getMonth() + 1;
+    day = d.getDate();
+  }
   const dateObj = new Date(year, month - 1, day);
   const formattedDate = dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
   return { year, month, day, formattedDate };
@@ -635,8 +658,34 @@ if (form) {
     e.preventDefault();
 
     if (!validateForm()) return;
+    const sleepEl = document.getElementById('sleep-time');
+    const wakeEl = document.getElementById('wake-time');
+    if (sleepEl && sleepEl.type === 'time' && !sleepEl.checkValidity()) {
+      sleepEl.classList.add('invalid-input');
+      return;
+    }
+    if (wakeEl && wakeEl.type === 'time' && !wakeEl.checkValidity()) {
+      wakeEl.classList.add('invalid-input');
+      return;
+    }
 
     const dateStr = dreamDateInput.value;
+    let serverDate = dateStr;
+    if (dreamDateInput && dreamDateInput.type === 'date') {
+      serverDate = dateStr; // browser provides yyyy-mm-dd
+    } else if (dateStr.includes('/')) {
+      const parts = dateStr.split('/').map(s => s.trim());
+      const mm = parts[0].padStart(2, '0');
+      const dd = parts[1].padStart(2, '0');
+      const yyyy = parts[2];
+      serverDate = `${yyyy}-${mm}-${dd}`;
+    } else if (!dateStr.includes('-')) {
+      const _d = new Date(dateStr);
+      const mm = String(_d.getMonth() + 1).padStart(2, '0');
+      const dd = String(_d.getDate()).padStart(2, '0');
+      const yyyy = _d.getFullYear();
+      serverDate = `${yyyy}-${mm}-${dd}`;
+    }
     const sleepTime = document.getElementById('sleep-time').value;
     const wakeTime = document.getElementById('wake-time').value;
     const text = dreamTextInput.value;
@@ -650,14 +699,14 @@ if (form) {
       ? tagsInput.split(',').map(t => t.trim().toLowerCase()).filter(t => t.length > 0) 
       : [];
 
-    const { year, month, day, formattedDate } = parseDateParts(dateStr);
+    const { year, month, day, formattedDate } = parseDateParts(serverDate);
 
     const dream = {
       id: Date.now(),
       createdAt: Date.now(),
       author: currentUser,
       isPublic,
-      rawDate: dateStr,
+      rawDate: serverDate,
       year,
       month,
       day,
@@ -682,7 +731,7 @@ if (form) {
             'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
-            date: dateStr,
+            date: serverDate,
             sleep_time: sleepTime,
             wake_time: wakeTime,
             dream_text: text,
@@ -708,7 +757,14 @@ if (form) {
     saveDreamsToStorage();
     
     form.reset();
-    dreamDateInput.value = new Date().toISOString().split('T')[0];
+    const _nd = new Date();
+    const _nm = String(_nd.getMonth() + 1).padStart(2, '0');
+    const _nday = String(_nd.getDate()).padStart(2, '0');
+    if (dreamDateInput.type === 'date') {
+      dreamDateInput.value = new Date().toISOString().split('T')[0];
+    } else {
+      dreamDateInput.value = `${_nm}/${_nday}/${_nd.getFullYear()}`;
+    }
     moodSlider.value = 0;
     realismSlider.value = 0;
     moodVal.textContent = "0";
