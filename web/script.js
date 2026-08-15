@@ -5,6 +5,12 @@ let selectedTags = new Set();
 
 const form = document.getElementById('dream-form');
 const dreamDateInput = document.getElementById('dream-date');
+const dreamTextInput = document.getElementById('dream-text');
+const dreamTagsInput = document.getElementById('dream-tags');
+const dreamTextError = document.getElementById('dream-text-error');
+const dreamTagsError = document.getElementById('dream-tags-error');
+const submitBtn = document.querySelector('#dream-form button[type="submit"]');
+
 const moodSlider = document.getElementById('mood-score');
 const realismSlider = document.getElementById('realism-score');
 const moodVal = document.getElementById('mood-val');
@@ -31,6 +37,51 @@ const authSwitchText = document.getElementById('auth-switch-text');
 let matrixChart;
 let moodTimelineChart;
 
+const textRegex = /^[a-zA-Z0-9\s,():\-—!?]*$/;
+const tagsRegex = /^[a-zA-Z\s,]*$/;
+
+function validateForm() {
+  let isValid = true;
+
+  const textVal = dreamTextInput.value;
+  if (!textRegex.test(textVal)) {
+    dreamTextInput.classList.add('invalid-input');
+    dreamTextError.textContent = 'Allowed characters: Latin letters, numbers, spaces, commas, (), :, -, —, !, ?';
+    isValid = false;
+  } else if (textVal.length > 2000) {
+    dreamTextInput.classList.add('invalid-input');
+    dreamTextError.textContent = `Character limit exceeded: ${textVal.length}/5000`;
+    isValid = false;
+  } else {
+    dreamTextInput.classList.remove('invalid-input');
+    dreamTextError.textContent = '';
+  }
+
+  const tagsVal = dreamTagsInput.value;
+  const parsedTags = tagsVal
+    ? tagsVal.split(',').map(t => t.trim()).filter(t => t.length > 0)
+    : [];
+
+  if (!tagsRegex.test(tagsVal)) {
+    dreamTagsInput.classList.add('invalid-input');
+    dreamTagsError.textContent = 'Allowed characters: Latin letters, spaces, and commas';
+    isValid = false;
+  } else if (parsedTags.length > 15) {
+    dreamTagsInput.classList.add('invalid-input');
+    dreamTagsError.textContent = `Tag limit exceeded: ${parsedTags.length}/15 max tags`;
+    isValid = false;
+  } else {
+    dreamTagsInput.classList.remove('invalid-input');
+    dreamTagsError.textContent = '';
+  }
+
+  submitBtn.disabled = !isValid;
+  return isValid;
+}
+
+dreamTextInput.addEventListener('input', validateForm);
+dreamTagsInput.addEventListener('input', validateForm);
+
 for (let d = 1; d <= 31; d++) {
   const opt = document.createElement('option');
   opt.value = d;
@@ -44,8 +95,42 @@ for (let d = 1; d <= 31; d++) {
   });
 });
 
-moodSlider.addEventListener('input', (e) => moodVal.textContent = e.target.value);
-realismSlider.addEventListener('input', (e) => realismVal.textContent = e.target.value);
+function updateSliderBackground(slider) {
+  const min = parseFloat(slider.min) || -10;
+  const max = parseFloat(slider.max) || 10;
+  const val = parseFloat(slider.value);
+
+  const baseColor = '#2a3d2e';
+  const activeColor = '#00ff87';
+
+  if (val === 0) {
+    slider.style.setProperty('background', baseColor, 'important');
+    return;
+  }
+
+  const zeroPercent = ((0 - min) / (max - min)) * 100;
+  const valPercent = ((val - min) / (max - min)) * 100;
+
+  let gradient = '';
+
+  if (val > 0) {
+    gradient = `linear-gradient(to right, ${baseColor} 0%, ${baseColor} ${zeroPercent}%, ${activeColor} ${zeroPercent}%, ${activeColor} ${valPercent}%, ${baseColor} ${valPercent}%, ${baseColor} 100%)`;
+  } else {
+    gradient = `linear-gradient(to right, ${baseColor} 0%, ${baseColor} ${valPercent}%, ${activeColor} ${valPercent}%, ${activeColor} ${zeroPercent}%, ${baseColor} ${zeroPercent}%, ${baseColor} 100%)`;
+  }
+
+  slider.style.setProperty('background', gradient, 'important');
+}
+
+moodSlider.addEventListener('input', (e) => {
+  moodVal.textContent = e.target.value;
+  updateSliderBackground(e.target);
+});
+
+realismSlider.addEventListener('input', (e) => {
+  realismVal.textContent = e.target.value;
+  updateSliderBackground(e.target);
+});
 
 const centerAxesPlugin = {
   id: 'centerAxes',
@@ -191,11 +276,15 @@ function parseDateParts(dateStr) {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
 
+  if (!validateForm()) {
+    return;
+  }
+
   const dateStr = dreamDateInput.value;
   const sleepTime = document.getElementById('sleep-time').value;
   const wakeTime = document.getElementById('wake-time').value;
-  const text = document.getElementById('dream-text').value;
-  const tagsInput = document.getElementById('dream-tags').value;
+  const text = dreamTextInput.value;
+  const tagsInput = dreamTagsInput.value;
   const mood = parseInt(moodSlider.value);
   const realism = parseInt(realismSlider.value);
 
@@ -226,8 +315,14 @@ form.addEventListener('submit', (e) => {
   
   form.reset();
   dreamDateInput.value = new Date().toISOString().split('T')[0];
+  moodSlider.value = 0;
+  realismSlider.value = 0;
   moodVal.textContent = "0";
   realismVal.textContent = "0";
+
+  updateSliderBackground(moodSlider);
+  updateSliderBackground(realismSlider);
+  validateForm();
 
   updateUI();
 });
@@ -373,4 +468,13 @@ window.onload = () => {
   initCharts();
   updateAuthUI();
   updateUI();
+
+  moodSlider.value = 0;
+  realismSlider.value = 0;
+  moodVal.textContent = "0";
+  realismVal.textContent = "0";
+
+  updateSliderBackground(moodSlider);
+  updateSliderBackground(realismSlider);
+  validateForm();
 };

@@ -154,6 +154,18 @@ textarea {
   resize: vertical;
 }
 
+input.invalid-input,
+textarea.invalid-input {
+  border-color: var(--danger) !important;
+}
+
+.error-msg {
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 4px;
+  min-height: 1.1em;
+}
+
 .slider-label {
   display: flex;
   justify-content: space-between;
@@ -177,8 +189,58 @@ textarea {
 }
 
 input[type="range"] {
-  accent-color: var(--accent-green);
+  -webkit-appearance: none;
+  appearance: none;
+  accent-color: transparent;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  background-color: #2a3d2e;
   cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: transparent;
+  border: none;
+}
+
+input[type="range"]::-moz-range-progress {
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  cursor: pointer;
+  margin-top: -6px;
+  transition: transform 0.1s ease;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover,
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.15);
 }
 
 .btn {
@@ -200,6 +262,12 @@ input[type="range"] {
 .btn-primary:hover {
   opacity: 0.9;
   box-shadow: 0 0 12px rgba(0, 255, 135, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-outline {

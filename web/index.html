@@ -30,7 +30,7 @@
           <div class="form-row form-row-3">
             <div class="form-group">
               <label for="dream-date">Date</label>
-              <input type="date" id="dream-date" required>
+              <input type="date" id="dream-date" lang="en-US" required>
             </div>
             <div class="form-group">
               <label for="sleep-time">Bedtime</label>
@@ -45,11 +45,13 @@
           <div class="form-group">
             <label for="dream-text">Dream description</label>
             <textarea id="dream-text" rows="3" placeholder="What did you dream about?" required></textarea>
+            <div id="dream-text-error" class="error-msg"></div>
           </div>
 
           <div class="form-group">
             <label for="dream-tags">Tags (comma separated)</label>
             <input type="text" id="dream-tags" placeholder="flying, lucid, space, work">
+            <div id="dream-tags-error" class="error-msg"></div>
           </div>
 
           <div class="sliders-grid">
