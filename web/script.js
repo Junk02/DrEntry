@@ -58,7 +58,7 @@ const authSwitchText = document.getElementById('auth-switch-text');
 const API_BASE = 'http://localhost:8000';
 
 const authUsernameRegex = /^[A-Za-z0-9_]{3,32}$/; // letters, digits, underscore, 3-32 chars
-const authPasswordRegex = /^[A-Za-z0-9_]{8,}$/; // min 8 chars, only letters/digits/underscore
+const authPasswordRegex = /^[A-Za-z0-9_]{8,30}$/; // min 8, max 30 chars, letters/digits/underscore
 
 let matrixChart;
 let moodTimelineChart;
@@ -381,10 +381,8 @@ function updateAuthUI() {
     authBtn.textContent = 'Log In / Sign Up';
   }
 
-  // disable dream save if user not logged in
   if (submitBtn) {
     if (loggedIn) {
-      // enable based on form validation
       submitBtn.disabled = !validateForm();
       submitBtn.removeAttribute('title');
     } else {
@@ -418,6 +416,21 @@ if (toggleAuthMode) {
     modalSubmitBtn.textContent = isSignUpMode ? 'Create Account' : 'Log In';
     authSwitchText.textContent = isSignUpMode ? 'Already have an account?' : "Don't have an account?";
     toggleAuthMode.textContent = isSignUpMode ? 'Log In' : 'Sign Up';
+    try {
+      authForm.reset();
+      const u = document.getElementById('username');
+      const p = document.getElementById('password');
+      if (u) u.classList.remove('invalid-input');
+      if (p) p.classList.remove('invalid-input');
+      const ue = document.getElementById('auth-username-error');
+      const pe = document.getElementById('auth-password-error');
+      const ge = document.getElementById('auth-error');
+      if (ue) ue.textContent = '';
+      if (pe) pe.textContent = '';
+      if (ge) ge.textContent = '';
+      if (modalSubmitBtn) modalSubmitBtn.disabled = false;
+    } catch (err) {
+    }
   });
 }
 
@@ -457,7 +470,6 @@ if (authForm) {
     return res.json();
   }
 
-  // immediate auth field validation helpers
   function checkAuthUsername() {
     const el = document.getElementById('username');
     if (!el) return;
