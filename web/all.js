@@ -22,7 +22,7 @@ const pageIndicator = document.getElementById('page-indicator');
 
 let currentPage = 1;
 const ITEMS_PER_PAGE = 4;
-let currentSort = 'created-desc';
+let currentSort = 'dream-desc';
 
 if (userDisplay && currentUser !== 'Anonymous') {
   userDisplay.textContent = `👤 ${currentUser}`;
@@ -73,10 +73,12 @@ function renderPublicDreams() {
   publicList.sort((a, b) => {
     const createdA = a.createdAt || a.id;
     const createdB = b.createdAt || b.id;
-    if (currentSort === 'created-desc') return createdB - createdA;
-    if (currentSort === 'created-asc') return createdA - createdB;
     if (currentSort === 'dream-desc') return b.rawDate.localeCompare(a.rawDate);
     if (currentSort === 'dream-asc') return a.rawDate.localeCompare(b.rawDate);
+    if (currentSort === 'mood-desc') return (Number(b.mood) || 0) - (Number(a.mood) || 0);
+    if (currentSort === 'mood-asc') return (Number(a.mood) || 0) - (Number(b.mood) || 0);
+    if (currentSort === 'realism-desc') return (Number(b.realism) || 0) - (Number(a.realism) || 0);
+    if (currentSort === 'realism-asc') return (Number(a.realism) || 0) - (Number(b.realism) || 0);
     return 0;
   });
 
