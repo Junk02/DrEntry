@@ -74,8 +74,8 @@ let tagsBarChart;
 
 let __fetchMyDreamsPromise = null;
 
-const textRegex = /^[a-zA-Z0-9\s,():\-—!?]*$/;
-const tagsRegex = /^[a-zA-Z\s,]*$/;
+const textRegex = /^[A-Za-zА-Яа-яЁё0-9\s,():\-—!?«»"'\.…]*$/;
+const tagsRegex = /^[A-Za-zА-Яа-яЁё0-9\s,]*$/;
 
 function saveDreamsToStorage() {
   localStorage.setItem('son_dreams', JSON.stringify(dreams));
@@ -99,9 +99,9 @@ function validateForm(textInput = dreamTextInput, textError = dreamTextError, ta
     textInput.classList.add('invalid-input');
     textError.textContent = 'Allowed characters: Latin letters, numbers, spaces, commas, (), :, -, —, !, ?';
     isValid = false;
-  } else if (textVal.length > 1500) {
+  } else if (textVal.length > 5000) {
     textInput.classList.add('invalid-input');
-    textError.textContent = `Character limit exceeded: ${textVal.length}/1500`;
+    textError.textContent = `Character limit exceeded: ${textVal.length}/5000`;
     isValid = false;
   } else {
     textInput.classList.remove('invalid-input');
@@ -140,7 +140,22 @@ function validateForm(textInput = dreamTextInput, textError = dreamTextError, ta
   return isValid;
 }
 
-if (dreamTextInput) dreamTextInput.addEventListener('input', () => validateForm());
+function autosizeTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const needed = el.scrollHeight;
+  el.style.height = needed + 'px';
+  if (el.scrollHeight > el.clientHeight) {
+    el.classList.add('show-scrollbar');
+  } else {
+    el.classList.remove('show-scrollbar');
+  }
+}
+
+if (dreamTextInput) {
+  autosizeTextarea(dreamTextInput);
+  dreamTextInput.addEventListener('input', () => { autosizeTextarea(dreamTextInput); validateForm(); });
+}
 if (dreamTagsInput) dreamTagsInput.addEventListener('input', () => validateForm());
 
 function switchView(viewName) {
@@ -757,6 +772,7 @@ if (form) {
     saveDreamsToStorage();
     
     form.reset();
+    if (dreamTextInput) dreamTextInput.style.height = 'auto';
     const _nd = new Date();
     const _nm = String(_nd.getMonth() + 1).padStart(2, '0');
     const _nday = String(_nd.getDate()).padStart(2, '0');

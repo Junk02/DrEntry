@@ -12,8 +12,8 @@ if (userDisplay && currentUser !== 'Anonymous') {
 const urlParams = new URLSearchParams(window.location.search);
 const dreamId = parseInt(urlParams.get('id'));
 
-const textRegex = /^[a-zA-Z0-9\s,():\-—!?]*$/;
-const tagsRegex = /^[a-zA-Z\s,]*$/;
+const textRegex = /^[A-Za-zА-Яа-яЁё0-9\s,():\-—!?«»"'\.…]*$/;
+const tagsRegex = /^[A-Za-zА-Яа-яЁё0-9\s,]*$/;
 
 function saveDreamsToStorage() {
   localStorage.setItem('son_dreams', JSON.stringify(dreams));
@@ -95,9 +95,9 @@ function validateEditForm(textInput, textError, tagsInput, tagsError, saveBtn) {
     textInput.classList.add('invalid-input');
     textError.textContent = 'Allowed characters: Latin letters, numbers, spaces, commas, (), :, -, —, !, ?';
     isValid = false;
-  } else if (textVal.length > 1500) {
+  } else if (textVal.length > 5000) {
     textInput.classList.add('invalid-input');
-    textError.textContent = `Character limit exceeded: ${textVal.length}/1500`;
+    textError.textContent = `Character limit exceeded: ${textVal.length}/5000`;
     isValid = false;
   } else {
     textInput.classList.remove('invalid-input');
@@ -165,7 +165,7 @@ function renderDreamDetails() {
 
       <div class="form-group">
         <label for="edit-dream-text">Dream Description</label>
-        <textarea id="edit-dream-text" rows="6">${dream.text}</textarea>
+        <textarea id="edit-dream-text" rows="6" maxlength="5000">${dream.text}</textarea>
         <div id="edit-text-error" class="error-msg"></div>
       </div>
 
@@ -249,10 +249,17 @@ function renderDreamDetails() {
       updateSliderBackground(e.target);
     });
 
+    function autosizeTextarea(el) {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
     const validate = () => validateEditForm(editText, textErr, editTags, tagsErr, saveBtn);
 
-    editText.addEventListener('input', validate);
+    editText.addEventListener('input', () => { autosizeTextarea(editText); validate(); });
     editTags.addEventListener('input', validate);
+    autosizeTextarea(editText);
     if (editSleep) editSleep.addEventListener('input', () => { if (editSleep.checkValidity()) editSleep.classList.remove('invalid-input'); });
     if (editWake) editWake.addEventListener('input', () => { if (editWake.checkValidity()) editWake.classList.remove('invalid-input'); });
 

@@ -240,6 +240,35 @@ textarea {
   resize: vertical;
 }
 
+/* Hide vertical scrollbar by default for textareas; show when content exceeds visible area */
+textarea {
+  max-height: 80vh;
+  overflow-y: auto;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+textarea:not(.show-scrollbar)::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+textarea.show-scrollbar {
+  -ms-overflow-style: auto;
+  scrollbar-width: auto;
+}
+
+textarea.show-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  background: transparent;
+}
+
+textarea.show-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 6px;
+}
+
 input.invalid-input,
 textarea.invalid-input {
   border-color: var(--danger) !important;
