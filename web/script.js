@@ -55,10 +55,17 @@ const modalSubmitBtn = document.getElementById('modal-submit-btn');
 const toggleAuthMode = document.getElementById('toggle-auth-mode');
 const authSwitchText = document.getElementById('auth-switch-text');
 
+const API_BASE = 'http://localhost:8000';
+
+const authUsernameRegex = /^[A-Za-z0-9_]{3,32}$/; // letters, digits, underscore, 3-32 chars
+const authPasswordRegex = /^[A-Za-z0-9_]{8,}$/; // min 8 chars, only letters/digits/underscore
+
 let matrixChart;
 let moodTimelineChart;
 let realismTimelineChart;
 let tagsBarChart;
+
+let __fetchMyDreamsPromise = null;
 
 const textRegex = /^[a-zA-Z0-9\s,():\-—!?]*$/;
 const tagsRegex = /^[a-zA-Z\s,]*$/;
@@ -363,12 +370,27 @@ function initCharts() {
 
 function updateAuthUI() {
   if (!userDisplay || !authBtn) return;
-  if (currentUser && currentUser !== 'Anonymous') {
+  const token = localStorage.getItem('son_token');
+  const loggedIn = token && currentUser && currentUser !== 'Anonymous';
+
+  if (loggedIn) {
     userDisplay.textContent = `👤 ${currentUser}`;
     authBtn.textContent = 'Log Out';
   } else {
     userDisplay.textContent = '';
     authBtn.textContent = 'Log In / Sign Up';
+  }
+
+  // disable dream save if user not logged in
+  if (submitBtn) {
+    if (loggedIn) {
+      // enable based on form validation
+      submitBtn.disabled = !validateForm();
+      submitBtn.removeAttribute('title');
+    } else {
+      submitBtn.disabled = true;
+      submitBtn.title = 'You must be signed in to save a dream';
+    }
   }
 }
 
@@ -377,6 +399,7 @@ if (authBtn) {
     if (currentUser && currentUser !== 'Anonymous') {
       currentUser = 'Anonymous';
       localStorage.removeItem('son_current_user');
+      localStorage.removeItem('son_token');
       updateAuthUI();
       updateUI();
     } else {
@@ -399,19 +422,184 @@ if (toggleAuthMode) {
 }
 
 if (authForm) {
-  authForm.addEventListener('submit', (e) => {
+  async function apiRegister(username, password) {
+    const res = await fetch(`${API_BASE}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      // pydantic/fastapi may return validation errors as an array under detail
+      if (errBody && Array.isArray(errBody.detail)) {
+        const msgs = errBody.detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+        throw new Error(msgs || 'Registration failed');
+      }
+      throw new Error(errBody.detail || 'Registration failed');
+    }
+    return res.json();
+  }
+
+  async function apiLogin(username, password) {
+    const res = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      if (errBody && Array.isArray(errBody.detail)) {
+        const msgs = errBody.detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+        throw new Error(msgs || 'Login failed');
+      }
+      throw new Error(errBody.detail || 'Login failed');
+    }
+    return res.json();
+  }
+
+  // immediate auth field validation helpers
+  function checkAuthUsername() {
+    const el = document.getElementById('username');
+    if (!el) return;
+    const errEl = document.getElementById('auth-username-error');
+    if (!authUsernameRegex.test(el.value.trim())) {
+      el.classList.add('invalid-input');
+      if (errEl) errEl.textContent = '3–32 chars: letters, numbers, underscore';
+    } else {
+      el.classList.remove('invalid-input');
+      if (errEl) errEl.textContent = '';
+    }
+  }
+
+  function checkAuthPassword() {
+    const el = document.getElementById('password');
+    if (!el) return;
+    const errEl = document.getElementById('auth-password-error');
+    if (!authPasswordRegex.test(el.value)) {
+      el.classList.add('invalid-input');
+      if (errEl) errEl.textContent = 'Min 8 chars: letters, numbers, underscore';
+    } else {
+      el.classList.remove('invalid-input');
+      if (errEl) errEl.textContent = '';
+    }
+  }
+
+  const __userEl = document.getElementById('username');
+  const __passEl = document.getElementById('password');
+  if (__userEl) __userEl.addEventListener('input', checkAuthUsername);
+  if (__passEl) __passEl.addEventListener('input', checkAuthPassword);
+
+  async function fetchMyDreamsFromServer() {
+    if (__fetchMyDreamsPromise) return __fetchMyDreamsPromise;
+
+    __fetchMyDreamsPromise = (async () => {
+      const token = localStorage.getItem('son_token');
+      if (!token) {
+        __fetchMyDreamsPromise = null;
+        return [];
+      }
+      const res = await fetch(`${API_BASE}/sleep/my`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        __fetchMyDreamsPromise = null;
+        throw new Error('Failed to load dreams from server');
+      }
+      const data = await res.json();
+
+      const mapped = data.map(e => ({
+        id: e.id,
+        createdAt: e.created_at ? new Date(e.created_at).getTime() : Date.now(),
+        author: currentUser,
+        isPublic: !!e.public,
+        rawDate: e.date,
+        year: (new Date(e.date)).getFullYear(),
+        month: (new Date(e.date)).getMonth() + 1,
+        day: (new Date(e.date)).getDate(),
+        formattedDate: new Date(e.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
+        sleepTime: e.sleep_time,
+        wakeTime: e.wake_time,
+        duration: calculateDuration(e.sleep_time, e.wake_time),
+        text: e.dream_text,
+        tags: Array.isArray(e.tags) ? e.tags : (e.tags ? e.tags.split(',').map(t => t.trim()) : []),
+        mood: e.mood,
+        realism: e.realism
+      }));
+
+      dreams = dreams.filter(d => d.author !== currentUser).concat(mapped);
+      saveDreamsToStorage();
+      updateUI();
+      __fetchMyDreamsPromise = null;
+      return mapped;
+    })();
+
+    return __fetchMyDreamsPromise;
+  }
+
+  authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
-    if (!username) return;
-
-    currentUser = username;
-    localStorage.setItem('son_current_user', currentUser);
-    
-    authModal.style.display = 'none';
-    authForm.reset();
-    updateAuthUI();
-    updateUI();
+    const password = document.getElementById('password').value;
+    // validate and highlight immediately if invalid
+    const userEl = document.getElementById('username');
+    const passEl = document.getElementById('password');
+    const usernameValid = authUsernameRegex.test(username);
+    const passwordValid = authPasswordRegex.test(password);
+    const userErrEl = document.getElementById('auth-username-error');
+    const passErrEl = document.getElementById('auth-password-error');
+    if (!usernameValid) {
+      userEl && userEl.classList.add('invalid-input');
+      if (userErrEl) userErrEl.textContent = '3–32 chars: letters, numbers, underscore';
+    } else if (userErrEl) userErrEl.textContent = '';
+    if (!passwordValid) {
+      passEl && passEl.classList.add('invalid-input');
+      if (passErrEl) passErrEl.textContent = 'Min 8 chars: letters, numbers, underscore';
+    } else if (passErrEl) passErrEl.textContent = '';
+    if (!usernameValid || !passwordValid) return;
+    const authErrorEl = document.getElementById('auth-error');
+    if (authErrorEl) authErrorEl.textContent = '';
+    modalSubmitBtn.disabled = true;
+    try {
+      let token;
+      if (isSignUpMode) {
+        const regResp = await apiRegister(username, password);
+        if (regResp && regResp.access_token) {
+          token = regResp.access_token;
+        }
+      }
+      if (!token) {
+        const loginResp = await apiLogin(username, password);
+        token = loginResp.access_token;
+      }
+      if (!token) throw new Error('No token received from server');
+      localStorage.setItem('son_token', token);
+      currentUser = username;
+      localStorage.setItem('son_current_user', currentUser);
+      // after successful register+login, ensure modal shows signed-in state
+      isSignUpMode = false;
+      toggleAuthMode.textContent = 'Sign Up';
+      modalTitle.textContent = 'Sign In';
+      modalSubmitBtn.textContent = 'Log In';
+      await fetchMyDreamsFromServer();
+      authModal.style.display = 'none';
+      authForm.reset();
+      // clear per-field auth errors after successful auth
+      const userErrEl2 = document.getElementById('auth-username-error');
+      const passErrEl2 = document.getElementById('auth-password-error');
+      if (userErrEl2) userErrEl2.textContent = '';
+      if (passErrEl2) passErrEl2.textContent = '';
+      updateAuthUI();
+      updateUI();
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Auth error';
+      if (authErrorEl) authErrorEl.textContent = msg;
+      else alert(msg);
+    } finally {
+      modalSubmitBtn.disabled = false;
+    }
   });
+  // expose loader globally so we can call it on page load
+  window.fetchMyDreamsFromServer = fetchMyDreamsFromServer;
 }
 
 function calculateDuration(sleepTime, wakeTime) {
@@ -431,7 +619,7 @@ function parseDateParts(dateStr) {
 }
 
 if (form) {
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -470,6 +658,39 @@ if (form) {
       mood,
       realism
     };
+
+    // if logged in, attempt to save on server
+    const token = localStorage.getItem('son_token');
+    if (token) {
+      try {
+        const resp = await fetch(`${API_BASE}/sleep/add`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            date: dateStr,
+            sleep_time: sleepTime,
+            wake_time: wakeTime,
+            dream_text: text,
+            tags: tags.join(','),
+            mood,
+            realism,
+            public: isPublic
+          })
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json.id) dream.id = json.id;
+          dream.createdAt = Date.now();
+        } else {
+          console.warn('Server rejected dream save', resp.status);
+        }
+      } catch (err) {
+        console.warn('Failed to save dream to server', err);
+      }
+    }
 
     dreams.push(dream);
     saveDreamsToStorage();
@@ -725,7 +946,12 @@ window.onload = () => {
   if (document.getElementById('matrix-chart')) {
     initCharts();
     updateAuthUI();
-    updateUI();
+    const token = localStorage.getItem('son_token');
+    if (token && currentUser && currentUser !== 'Anonymous' && window.fetchMyDreamsFromServer) {
+      window.fetchMyDreamsFromServer().catch(err => console.warn('Failed to fetch server dreams:', err));
+    } else {
+      updateUI();
+    }
 
     if (moodSlider) {
       moodSlider.value = 0;

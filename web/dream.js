@@ -1,5 +1,6 @@
 let currentUser = localStorage.getItem('son_current_user') || 'Anonymous';
 let dreams = JSON.parse(localStorage.getItem('son_dreams') || '[]');
+const API_BASE = 'http://localhost:8000';
 
 const userDisplay = document.getElementById('user-display');
 const detailsContainer = document.getElementById('details-container');
@@ -260,14 +261,65 @@ function renderDreamDetails() {
       dream.mood = parseInt(editMood.value);
       dream.realism = parseInt(editRealism.value);
 
-      saveDreamsToStorage();
-      window.location.href = 'index.html';
+      // if logged in, attempt to update on server
+      const token = localStorage.getItem('son_token');
+      const payload = {
+        date: dream.rawDate,
+        sleep_time: dream.sleepTime,
+        wake_time: dream.wakeTime,
+        dream_text: dream.text,
+        tags: dream.tags ? dream.tags.join(',') : '',
+        mood: dream.mood,
+        realism: dream.realism,
+        public: dream.isPublic
+      };
+
+      (async () => {
+        if (token) {
+          try {
+            const res = await fetch(`${API_BASE}/sleep/update/${dreamId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+              console.warn('Failed to update on server', await res.text());
+            }
+          } catch (err) {
+            console.warn('Error updating on server', err);
+          }
+        }
+
+        saveDreamsToStorage();
+        window.location.href = 'index.html';
+      })();
     });
 
     deleteBtn.addEventListener('click', () => {
-      dreams = dreams.filter(d => d.id !== dreamId);
-      saveDreamsToStorage();
-      window.location.href = 'index.html';
+      const token = localStorage.getItem('son_token');
+
+      (async () => {
+        if (token) {
+          try {
+            const res = await fetch(`${API_BASE}/sleep/delete/${dreamId}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) {
+              console.warn('Server failed to delete', await res.text());
+            }
+          } catch (err) {
+            console.warn('Error calling delete on server', err);
+          }
+        }
+
+        dreams = dreams.filter(d => d.id !== dreamId);
+        saveDreamsToStorage();
+        window.location.href = 'index.html';
+      })();
     });
   }
 }

@@ -630,6 +630,15 @@ canvas {
   position: relative;
 }
 
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content .btn {
+  margin-top: 10px;
+}
+
 .modal-close {
   position: absolute;
   top: 16px;

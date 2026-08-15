@@ -1,5 +1,17 @@
 let currentUser = localStorage.getItem('son_current_user') || 'Anonymous';
 let dreams = JSON.parse(localStorage.getItem('son_dreams') || '[]');
+const API_BASE = 'http://localhost:8000';
+let publicDreams = [];
+
+function calculateDuration(sleepTime, wakeTime) {
+  if (!sleepTime || !wakeTime) return '0';
+  const [sH, sM] = sleepTime.split(':').map(Number);
+  const [wH, wM] = wakeTime.split(':').map(Number);
+  let start = sH * 60 + sM;
+  let end = wH * 60 + wM;
+  if (end <= start) end += 24 * 60;
+  return ((end - start) / 60).toFixed(1);
+}
 
 const userDisplay = document.getElementById('user-display');
 const publicDreamsList = document.getElementById('public-dreams-list');
@@ -46,10 +58,11 @@ function openDreamDetails(id) {
 
 function renderPublicDreams() {
   if (!publicDreamsList) return;
+  const source = publicDreams.length ? publicDreams : dreams.filter(d => d.isPublic);
 
-  const publicDreams = dreams.filter(d => d.isPublic);
-
-  if (publicDreams.length === 0) {
+  // use 'source' as the array to render
+  const publicList = source;
+  if (publicList.length === 0) {
     publicDreamsList.innerHTML = '<p class="empty-msg">No public dreams shared yet.</p>';
     if (pageIndicator) pageIndicator.textContent = 'Page 0 of 0';
     if (prevPageBtn) prevPageBtn.disabled = true;
@@ -57,7 +70,7 @@ function renderPublicDreams() {
     return;
   }
 
-  publicDreams.sort((a, b) => {
+  publicList.sort((a, b) => {
     const createdA = a.createdAt || a.id;
     const createdB = b.createdAt || b.id;
     if (currentSort === 'created-desc') return createdB - createdA;
@@ -67,12 +80,12 @@ function renderPublicDreams() {
     return 0;
   });
 
-  const totalPages = Math.ceil(publicDreams.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(publicList.length / ITEMS_PER_PAGE);
   if (currentPage > totalPages) currentPage = totalPages;
   if (currentPage < 1) currentPage = 1;
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedDreams = publicDreams.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedDreams = publicList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   publicDreamsList.innerHTML = paginatedDreams.map(d => {
     const isOwner = d.author === currentUser;
@@ -108,4 +121,38 @@ function renderPublicDreams() {
   if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
 }
 
-window.onload = renderPublicDreams;
+async function fetchPublicFromServer() {
+  try {
+    const res = await fetch(`${API_BASE}/sleep/public`);
+    if (!res.ok) {
+      console.warn('Failed to fetch public dreams', res.status);
+      return [];
+    }
+    const data = await res.json();
+    // map to frontend shape
+    publicDreams = data.map(e => ({
+      id: e.id,
+      rawDate: e.date,
+      formattedDate: new Date(e.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
+      sleepTime: e.sleep_time,
+      wakeTime: e.wake_time,
+      duration: (e.sleep_time && e.wake_time) ? calculateDuration(e.sleep_time, e.wake_time) : '0',
+      text: e.dream_text,
+      tags: e.tags ? (Array.isArray(e.tags) ? e.tags : e.tags.split(',').map(t => t.trim()).filter(Boolean)) : [],
+      mood: e.mood,
+      realism: e.realism,
+      author: e.author,
+      createdAt: e.created_at ? new Date(e.created_at).getTime() : null,
+      isPublic: true
+    }));
+    renderPublicDreams();
+    return publicDreams;
+  } catch (err) {
+    console.warn('Error fetching public dreams', err);
+    return [];
+  }
+}
+
+window.onload = () => {
+  fetchPublicFromServer().catch(() => {});
+};
