@@ -12,6 +12,9 @@ if (userDisplay && currentUser !== 'Anonymous') {
 const urlParams = new URLSearchParams(window.location.search);
 const dreamId = parseInt(urlParams.get('id'));
 
+const fromPublic = urlParams.get('from') === 'public';
+const redirectUrl = fromPublic ? 'all.html' : 'index.html';
+
 const textRegex = /^[A-Za-zА-Яа-яЁё0-9\s,():\-—!?«»"'\.…]*$/;
 const tagsRegex = /^[A-Za-zА-Яа-яЁё0-9\s,]*$/;
 
@@ -302,7 +305,6 @@ function renderDreamDetails() {
       dream.mood = parseInt(editMood.value);
       dream.realism = parseInt(editRealism.value);
 
-      // if logged in, attempt to update on server
       const token = localStorage.getItem('son_token');
       const payload = {
         date: dream.rawDate,
@@ -335,7 +337,7 @@ function renderDreamDetails() {
         }
 
         saveDreamsToStorage();
-        window.location.href = 'index.html';
+        window.location.href = redirectUrl;
       })();
     });
 
@@ -359,7 +361,7 @@ function renderDreamDetails() {
 
         dreams = dreams.filter(d => d.id !== dreamId);
         saveDreamsToStorage();
-        window.location.href = 'index.html';
+        window.location.href = redirectUrl;
       })();
     });
   }

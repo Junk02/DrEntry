@@ -20,7 +20,8 @@ const prevPageBtn = document.getElementById('prev-page-btn');
 const nextPageBtn = document.getElementById('next-page-btn');
 const pageIndicator = document.getElementById('page-indicator');
 
-let currentPage = 1;
+const urlParams = new URLSearchParams(window.location.search);
+let currentPage = parseInt(urlParams.get('page')) || parseInt(sessionStorage.getItem('lastPublicFeedPage')) || 1;
 const ITEMS_PER_PAGE = 4;
 let currentSort = 'dream-desc';
 
@@ -32,6 +33,7 @@ if (sortSelect) {
   sortSelect.addEventListener('change', (e) => {
     currentSort = e.target.value;
     currentPage = 1;
+    sessionStorage.setItem('lastPublicFeedPage', currentPage);
     renderPublicDreams();
   });
 }
@@ -40,6 +42,7 @@ if (prevPageBtn) {
   prevPageBtn.addEventListener('click', () => {
     if (currentPage > 1) {
       currentPage--;
+      sessionStorage.setItem('lastPublicFeedPage', currentPage);
       renderPublicDreams();
     }
   });
@@ -48,19 +51,20 @@ if (prevPageBtn) {
 if (nextPageBtn) {
   nextPageBtn.addEventListener('click', () => {
     currentPage++;
+    sessionStorage.setItem('lastPublicFeedPage', currentPage);
     renderPublicDreams();
   });
 }
 
 function openPublicDreamDetails(id) {
-  window.location.href = `public_dream.html?id=${id}`;
+  sessionStorage.setItem('lastPublicFeedPage', currentPage);
+  window.location.href = `public_dream.html?id=${id}&page=${currentPage}`;
 }
 
 function renderPublicDreams() {
   if (!publicDreamsList) return;
   const source = publicDreams.length ? publicDreams : dreams.filter(d => d.isPublic);
 
-  // use 'source' as the array to render
   const publicList = source;
   if (publicList.length === 0) {
     publicDreamsList.innerHTML = '<p class="empty-msg">No public dreams shared yet.</p>';
@@ -112,7 +116,7 @@ function renderPublicDreams() {
 
         ${isOwner ? `
           <div style="margin-top: 12px; text-align: right;">
-            <button class="btn btn-outline" style="width: auto; padding: 6px 12px; font-size: 0.85rem;" onclick="window.location.href='dream.html?id=${d.id}'">Edit My Dream</button>
+            <button class="btn btn-outline" style="width: auto; padding: 6px 12px; font-size: 0.85rem;" onclick="event.stopPropagation(); window.location.href='dream.html?id=${d.id}&from=public'">Edit My Dream</button>
           </div>
         ` : ''}
       </div>
@@ -132,7 +136,6 @@ async function fetchPublicFromServer() {
       return [];
     }
     const data = await res.json();
-    // map to frontend shape
     publicDreams = data.map(e => ({
       id: e.id,
       rawDate: e.date,

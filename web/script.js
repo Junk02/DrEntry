@@ -64,8 +64,8 @@ const authSwitchText = document.getElementById('auth-switch-text');
 
 const API_BASE = 'http://localhost:8000';
 
-const authUsernameRegex = /^[A-Za-z0-9_]{3,32}$/; // letters, digits, underscore, 3-32 chars
-const authPasswordRegex = /^[A-Za-z0-9_]{8,30}$/; // min 8, max 30 chars, letters/digits/underscore
+const authUsernameRegex = /^[A-Za-z0-9_]{3,32}$/;
+const authPasswordRegex = /^[A-Za-z0-9_]{8,30}$/;
 
 let matrixChart;
 let moodTimelineChart;
@@ -404,13 +404,7 @@ function updateAuthUI() {
   }
 
   if (submitBtn) {
-    if (loggedIn) {
-      submitBtn.disabled = !validateForm();
-      submitBtn.removeAttribute('title');
-    } else {
-      submitBtn.disabled = true;
-      submitBtn.title = 'You must be signed in to save a dream';
-    }
+    submitBtn.disabled = false;
   }
 }
 
@@ -465,7 +459,6 @@ if (authForm) {
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
-      // pydantic/fastapi may return validation errors as an array under detail
       if (errBody && Array.isArray(errBody.detail)) {
         const msgs = errBody.detail.map(d => d.msg || JSON.stringify(d)).join('; ');
         throw new Error(msgs || 'Registration failed');
@@ -672,6 +665,24 @@ if (form) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const authErrorDiv = document.getElementById('dream-auth-error');
+    if (authErrorDiv) authErrorDiv.textContent = '';
+
+    const token = localStorage.getItem('son_token');
+    if (!token) {
+      submitBtn.classList.add('btn-danger-flash');
+      
+      if (authErrorDiv) {
+        authErrorDiv.textContent = 'Please log in to your account to save your dreams.';
+      }
+      
+      setTimeout(() => {
+        submitBtn.classList.remove('btn-danger-flash');
+      }, 1500);
+
+      return;
+    }
+
     if (!validateForm()) return;
     const sleepEl = document.getElementById('sleep-time');
     const wakeEl = document.getElementById('wake-time');
@@ -687,7 +698,7 @@ if (form) {
     const dateStr = dreamDateInput.value;
     let serverDate = dateStr;
     if (dreamDateInput && dreamDateInput.type === 'date') {
-      serverDate = dateStr; // browser provides yyyy-mm-dd
+      serverDate = dateStr;
     } else if (dateStr.includes('/')) {
       const parts = dateStr.split('/').map(s => s.trim());
       const mm = parts[0].padStart(2, '0');
@@ -735,37 +746,33 @@ if (form) {
       realism
     };
 
-    // if logged in, attempt to save on server
-    const token = localStorage.getItem('son_token');
-    if (token) {
-      try {
-        const resp = await fetch(`${API_BASE}/sleep/add`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            date: serverDate,
-            sleep_time: sleepTime,
-            wake_time: wakeTime,
-            dream_text: text,
-            tags: tags.join(','),
-            mood,
-            realism,
-            public: isPublic
-          })
-        });
-        if (resp.ok) {
-          const json = await resp.json();
-          if (json.id) dream.id = json.id;
-          dream.createdAt = Date.now();
-        } else {
-          console.warn('Server rejected dream save', resp.status);
-        }
-      } catch (err) {
-        console.warn('Failed to save dream to server', err);
+    try {
+      const resp = await fetch(`${API_BASE}/sleep/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          date: serverDate,
+          sleep_time: sleepTime,
+          wake_time: wakeTime,
+          dream_text: text,
+          tags: tags.join(','),
+          mood,
+          realism,
+          public: isPublic
+        })
+      });
+      if (resp.ok) {
+        const json = await resp.json();
+        if (json.id) dream.id = json.id;
+        dream.createdAt = Date.now();
+      } else {
+        console.warn('Server rejected dream save', resp.status);
       }
+    } catch (err) {
+      console.warn('Failed to save dream to server', err);
     }
 
     dreams.push(dream);
@@ -1025,6 +1032,24 @@ function updateCharts() {
   }];
   realismTimelineChart.update();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const backBtn = document.getElementById('backToFeedBtn');
+  if (!backBtn) return;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const pageParam = urlParams.get('page');
+
+  if (pageParam) {
+    sessionStorage.setItem('lastPublicFeedPage', pageParam);
+    backBtn.href = `all.html?page=${pageParam}`;
+  } else {
+    const savedPage = sessionStorage.getItem('lastPublicFeedPage');
+    if (savedPage) {
+      backBtn.href = `all.html?page=${savedPage}`;
+    }
+  }
+});
 
 window.onload = () => {
   if (document.getElementById('matrix-chart')) {

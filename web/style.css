@@ -240,12 +240,11 @@ textarea {
   resize: vertical;
 }
 
-/* Hide vertical scrollbar by default for textareas; show when content exceeds visible area */
 textarea {
   max-height: 80vh;
   overflow-y: auto;
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 textarea:not(.show-scrollbar)::-webkit-scrollbar {
@@ -603,7 +602,6 @@ canvas {
   overflow-wrap: break-word;
 }
 
-/* Ensure long words in full public view wrap and preserve newlines */
 .public-dream-text,
 .dream-full-text {
   white-space: pre-wrap;
@@ -693,6 +691,13 @@ canvas {
   text-align: center;
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.btn-danger-flash {
+  background: var(--danger) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6) !important;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 @media (max-width: 768px) {

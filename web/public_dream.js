@@ -67,6 +67,15 @@ async function fetchPublicEntry(id) {
 window.onload = () => {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
+  const pageFromUrl = params.get('page');
+
+  const savedPage = pageFromUrl || sessionStorage.getItem('lastPublicFeedPage');
+  const backBtn = document.getElementById('backToFeedBtn');
+  
+  if (backBtn && savedPage) {
+    backBtn.href = `all.html?page=${savedPage}`;
+  }
+
   if (!id) {
     if (container) container.innerHTML = '<p class="empty-msg">No entry specified.</p>';
     return;
